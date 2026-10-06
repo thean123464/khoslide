@@ -1,13 +1,1 @@
-{% extends "base.html" %}
-{% block content %}
-<section class="checkout">
-  <div class="checkout-card center">
-    <div class="success-icon">✓</div>
-    <div class="eyebrow dark">THANH TOÁN THÀNH CÔNG</div>
-    <h1>Mẫu đã được mở khóa</h1>
-    <p>{{ o.name }}</p>
-    <p class="sub">Thanh toán của bạn đã được hệ thống xác nhận. Bạn có thể tải file PowerPoint ngay bây giờ.</p>
-    <a class="btn large" href="{{ url_for('download', order_id=o.id, token=o.download_token) }}">Tải mẫu PowerPoint ↓</a>
-  </div>
-</section>
-{% endblock %}
+{% extends "base.html" %}{% block title %}Hoàn tất — KhoSlide{% endblock %}{% block content %}<div class="container"><div class="form-card" style="text-align:center"><div style="font-size:55px">✓</div><span class="pill">THANH TOÁN THÀNH CÔNG</span><h1>Cảm ơn bạn đã mua template!</h1><p>Đơn hàng #{{ o.id }} đã được xác nhận.</p>{% if o.download_url %}<a class="btn btn-primary" href="{{ o.download_url }}">Tải template xuống ↓</a>{% endif %}<div style="margin-top:18px"><a class="section-link" href="{{ url_for('templates_page') }}">Tiếp tục khám phá template →</a></div></div></div>{% endblock %}
