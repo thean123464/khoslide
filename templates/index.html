@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+ <div class="container hero-grid">
+  <div class="hero-copy">
+   <div class="eyebrow">KHO MẪU THUYẾT TRÌNH</div>
+   <h1>Tạo bài thuyết trình<br>khiến mọi người <i>nhớ mãi.</i></h1>
+   <p>Mẫu PowerPoint được thiết kế cho những bài thuyết trình quan trọng — rõ ràng, đẹp mắt và sẵn sàng để bạn biến thành câu chuyện của riêng mình.</p>
+   <form class="hero-search" action="{{ url_for('templates') }}" method="get">
+     <span>⌕</span><input name="q" placeholder="Bạn đang tìm mẫu PowerPoint nào? Ví dụ: Kinh doanh, AI, Giáo dục..."><button>Tìm kiếm</button>
+   </form>
+   <div class="hero-links"><span>Phổ biến:</span><a href="{{ url_for('templates', category='Công nghệ') }}">AI</a><a href="{{ url_for('templates', category='Kinh doanh') }}">Kinh doanh</a><a href="{{ url_for('templates', category='Giáo dục') }}">Giáo dục</a><a href="{{ url_for('templates', category='Marketing') }}">Marketing</a></div>
+  </div>
+  <div class="hero-art">
+   <div class="art-card art-a"><small>01 / 18</small><strong>Ý tưởng<br>thành tác động.</strong><span>BÀI TRÌNH BÀY KINH DOANH</span></div>
+   <div class="art-card art-b"><span>DỮ LIỆU</span><strong>BÁO CÁO<br>2026</strong><small>Chiến lược · Tăng trưởng · Thị trường</small></div>
+   <div class="art-card art-c"><small>AI / CÔNG NGHỆ</small><strong>LÀN<br>SÓNG<br>TIẾP THEO</strong></div>
+  </div>
+ </div>
+</section>
+
+<section class="trust"><div class="container trust-row"><span>Phù hợp với</span><b>Kinh doanh</b><b>Giáo dục</b><b>Marketing</b><b>Gọi vốn</b><b>Sự kiện</b></div></section>
+
+<section class="section">
+ <div class="container">
+  <div class="section-head"><div><div class="eyebrow dark">GỢI Ý DÀNH CHO BẠN</div><h2>Khám phá mẫu PowerPoint</h2></div><a class="text-link" href="{{ url_for('templates') }}">Xem tất cả →</a></div>
+  <div class="category-pills">
+   {% for c in categories[1:] %}<a href="{{ url_for('templates', category=c) }}">{{ c }}</a>{% endfor %}
+  </div>
+  <div class="products">
+  {% for p in products[:6] %}
+   <article class="product-card">
+    <a href="{{ url_for('product', product_id=p.id) }}">
+      <div class="thumb {{ p.preview }}"><span class="badge">{{ p.badge or 'DỄ CHỈNH SỬA' }}</span><div class="thumb-no">{{ "%02d"|format(p.id) }}</div><div class="thumb-title">{{ p.name }}</div><div class="thumb-meta">{{ p.category }} · {{ p.slides }} trang chiếu</div></div>
+    </a>
+    <div class="pc-body"><div class="pc-cat">{{ p.category }}</div><h3><a href="{{ url_for('product', product_id=p.id) }}">{{ p.name }}</a></h3><div class="pc-bottom"><b>{{ "{:,.0f}".format(p.price) }}đ</b><a href="{{ url_for('product', product_id=p.id) }}">Chi tiết →</a></div></div>
+   </article>
+  {% endfor %}
+  </div>
+ </div>
+</section>
+
+<section class="split-section">
+ <div class="container split">
+  <div class="split-visual"><div class="mini-slide s1">LÀM<br>RÕ RÀNG.</div><div class="mini-slide s2">LÀM<br>THEO CÁCH BẠN.</div></div>
+  <div><div class="eyebrow dark">KHÔNG CHỈ LÀ SLIDE ĐẸP</div><h2>Thiết kế để nội dung của bạn được nhìn thấy.</h2><p>Chúng tôi tập trung vào thứ bậc nội dung, kiểu chữ, khoảng trắng và cấu trúc — để mẫu không chỉ đẹp mà còn thực sự hữu ích.</p><div class="check"><span>✓</span> Thành phần dễ chỉnh sửa</div><div class="check"><span>✓</span> Bố cục 16:9 hiện đại</div><div class="check"><span>✓</span> Tải file sau khi thanh toán</div><a class="btn" href="{{ url_for('templates') }}">Khám phá kho mẫu</a></div>
+ </div>
+</section>
+
+<section class="section dark">
+ <div class="container">
+  <div class="section-head"><div><div class="eyebrow">VÌ SAO CHỌN KHOSLIDE</div><h2>Ít thời gian thiết kế hơn.<br>Nhiều thời gian kể chuyện hơn.</h2></div></div>
+  <div class="feature-grid">
+   <div><span>01</span><h3>Được chọn lọc</h3><p>Kho mẫu được chia theo mục đích để bạn tìm đúng mẫu nhanh hơn.</p></div>
+   <div><span>02</span><h3>Dễ chỉnh sửa</h3><p>Bạn có thể thay nội dung, hình ảnh và màu sắc trực tiếp trong PowerPoint.</p></div>
+   <div><span>03</span><h3>Nhận file ngay</h3><p>Sau khi thanh toán thành công, file sẽ được mở khóa để tải về.</p></div>
+  </div>
+ </div>
+</section>
+{% endblock %}

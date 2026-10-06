@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="checkout">
+  <div class="checkout-card center payment-card">
+    <div class="eyebrow dark">ĐƠN HÀNG #{{ o.id }}</div>
+    <h1>Thanh toán đơn hàng</h1>
+    <p>{{ o.name }}</p>
+    <div class="price-big">{{ "{:,.0f}".format(o.price) }}đ</div>
+
+    <div class="payment-qr-wrap">
+      <img class="payment-qr" src="{{ qr_url }}" alt="Mã QR thanh toán KhoSlide">
+    </div>
+
+    <div class="bank">
+      <p><b>Ngân hàng:</b> MB</p>
+      <p><b>Số tài khoản:</b> {{ bank_account }}</p>
+      <p><b>Chủ tài khoản:</b> {{ bank_owner }}</p>
+      <p><b>Số tiền:</b> {{ "{:,.0f}".format(o.price) }}đ</p>
+      <p><b>Nội dung chuyển khoản:</b> <strong class="payment-code">{{ o.payment_code }}</strong></p>
+    </div>
+
+    <div class="payment-warning">
+      <b>Quan trọng:</b> Vui lòng chuyển đúng số tiền và giữ nguyên nội dung chuyển khoản.
+      Hệ thống sẽ tự động kiểm tra giao dịch và mở khóa file sau khi nhận được tiền.
+    </div>
+
+    <div id="payment-waiting" class="payment-waiting">
+      <div class="spinner"></div>
+      <div><b>Đang chờ thanh toán...</b><br><span>Trang này sẽ tự kiểm tra giao dịch tự động.</span></div>
+    </div>
+
+    <div id="payment-paid" class="payment-paid" hidden>
+      <div class="success-icon small">✓</div>
+      <b>Thanh toán thành công!</b>
+      <a id="success-link" class="btn large" href="#">Mở khóa và tải mẫu</a>
+    </div>
+
+    <p class="hint">Không cần bấm nút “Tôi đã chuyển khoản”. KhoSlide chỉ mở khóa khi hệ thống nhận được giao dịch hợp lệ từ SePay.</p>
+  </div>
+</section>
+<script>
+(function(){
+  const statusUrl = {{ url_for('payment_status', order_id=o.id)|tojson }};
+  const waiting = document.getElementById('payment-waiting');
+  const paid = document.getElementById('payment-paid');
+  const successLink = document.getElementById('success-link');
+  let stopped = false;
+
+  async function checkPayment(){
+    if(stopped) return;
+    try{
+      const res = await fetch(statusUrl, {cache:'no-store'});
+      const data = await res.json();
+      if(data.paid && data.success_url){
+        stopped = true;
+        waiting.hidden = true;
+        paid.hidden = false;
+        successLink.href = data.success_url;
+        return;
+      }
+    }catch(e){}
+    setTimeout(checkPayment, 3000);
+  }
+  checkPayment();
+})();
+</script>
+{% endblock %}

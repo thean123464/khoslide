@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title or "KhoSlide — Mẫu PowerPoint" }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="{{ url_for('index') }}">KhoSlide</a>
+    <nav>
+      <a href="{{ url_for('templates') }}">Mẫu PowerPoint</a>
+      <a href="{{ url_for('templates', category='Kinh doanh') }}">Kinh doanh</a>
+      <a href="{{ url_for('templates', category='Giáo dục') }}">Giáo dục</a>
+      <a href="{{ url_for('templates', category='Công nghệ') }}">Công nghệ</a>
+    </nav>
+    <div class="nav-right">
+      <a class="search-mini" href="{{ url_for('templates') }}">⌕ <span>Tìm kiếm mẫu</span></a>
+    </div>
+  </div>
+</header>
+{% block content %}{% endblock %}
+<footer>
+  <div class="footer-inner">
+    <div><a class="brand white" href="{{ url_for('index') }}">KhoSlide</a><p>Mẫu PowerPoint được thiết kế để ý tưởng của bạn trở nên chuyên nghiệp và nổi bật hơn.</p></div>
+    <div><b>Khám phá</b><a href="{{ url_for('templates') }}">Tất cả mẫu</a><a href="{{ url_for('templates', category='Marketing') }}">Marketing</a><a href="{{ url_for('templates', category='Kêu gọi đầu tư') }}">Mẫu gọi vốn</a></div>
+    <div><b>Hỗ trợ</b><a href="#">Hướng dẫn mua</a><a href="#">Điều khoản</a><a href="#">Liên hệ</a></div>
+  </div>
+  <div class="copyright">© 2026 KhoSlide. Thiết kế giao diện và thương hiệu nguyên bản.</div>
+</footer>
+</body>
+</html>

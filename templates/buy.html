@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="checkout"><div class="checkout-card">
+<div><div class="eyebrow dark">ĐẶT MUA</div><h1>Hoàn tất đơn hàng</h1><p class="sub">Bạn đang mua <b>{{ p.name }}</b></p></div>
+<div class="order-summary"><span>Tổng thanh toán</span><b>{{ "{:,.0f}".format(p.price) }}đ</b></div>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<form method="post"><label>Họ và tên</label><input name="name" required placeholder="Nguyễn Văn A"><label>Email</label><input name="email" type="email" required placeholder="ban@email.com"><button class="btn large">Tiếp tục thanh toán →</button></form>
+</div></section>
+{% endblock %}

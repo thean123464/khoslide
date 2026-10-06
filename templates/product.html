@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="detail">
+ <div class="container detail-grid">
+  <div>
+   <div class="detail-preview {{ p.preview }}"><span class="badge">{{ p.badge or 'DỄ CHỈNH SỬA' }}</span><div class="big-no">{{ "%02d"|format(p.id) }}</div><h2>{{ p.name }}</h2><small>{{ p.category }} · {{ p.slides }} trang chiếu · 16:9</small></div>
+   <div class="thumb-strip"><div class="strip one"></div><div class="strip two"></div><div class="strip three"></div><div class="strip four"></div></div>
+  </div>
+  <div class="detail-copy">
+   <div class="eyebrow dark">{{ p.category }}</div><h1>{{ p.name }}</h1><p>{{ p.description }}</p>
+   <div class="price-big">{{ "{:,.0f}".format(p.price) }}đ</div>
+   <div class="detail-box"><div><b>Định dạng</b><span>{{ p.format }}</span></div><div><b>Tỉ lệ</b><span>16:9</span></div><div><b>Số trang chiếu</b><span>{{ p.slides }}</span></div></div>
+   <a class="btn buy-btn" href="{{ url_for('buy', product_id=p.id) }}">Mua ngay — {{ "{:,.0f}".format(p.price) }}đ</a>
+   <p class="safe">✓ Thanh toán an toàn &nbsp; ✓ Tải file sau khi thanh toán &nbsp; ✓ Có thể chỉnh sửa</p>
+  </div>
+ </div>
+</section>
+<section class="section related"><div class="container"><div class="section-head"><h2>Có thể bạn cũng thích</h2></div><div class="products">{% for r in related %}<article class="product-card"><a href="{{ url_for('product', product_id=r.id) }}"><div class="thumb {{ r.preview }}"><div class="thumb-no">{{ "%02d"|format(r.id) }}</div><div class="thumb-title">{{ r.name }}</div></div></a><div class="pc-body"><h3>{{ r.name }}</h3><div class="pc-bottom"><b>{{ "{:,.0f}".format(r.price) }}đ</b></div></div></article>{% endfor %}</div></div></section>
+{% endblock %}

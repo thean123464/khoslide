@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="checkout">
+  <div class="checkout-card center">
+    <div class="success-icon">✓</div>
+    <div class="eyebrow dark">THANH TOÁN THÀNH CÔNG</div>
+    <h1>Mẫu đã được mở khóa</h1>
+    <p>{{ o.name }}</p>
+    <p class="sub">Thanh toán của bạn đã được hệ thống xác nhận. Bạn có thể tải file PowerPoint ngay bây giờ.</p>
+    <a class="btn large" href="{{ url_for('download', order_id=o.id, token=o.download_token) }}">Tải mẫu PowerPoint ↓</a>
+  </div>
+</section>
+{% endblock %}

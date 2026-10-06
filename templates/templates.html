@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="catalog-head">
+ <div class="container">
+  <div class="eyebrow dark">THƯ VIỆN MẪU</div><h1>Tất cả mẫu PowerPoint</h1><p>Chọn một mẫu, chỉnh sửa theo phong cách của bạn và bắt đầu trình bày.</p>
+  <form class="catalog-search" method="get"><input name="q" value="{{ q }}" placeholder="Tìm mẫu PowerPoint..."><button>⌕</button></form>
+ </div>
+</section>
+<section class="catalog">
+ <div class="container catalog-grid">
+  <aside>
+   <b>Danh mục</b>
+   {% for c in categories %}<a class="{% if category==c %}active{% endif %}" href="{{ url_for('templates', category=c, q=q) }}">{{ c }} <span>›</span></a>{% endfor %}
+   <hr><b>Định dạng</b><label><input type="checkbox" checked> PowerPoint (.pptx)</label><label><input type="checkbox"> Canva</label><hr><b>Khoảng giá</b><label><input type="checkbox"> Miễn phí</label><label><input type="checkbox"> Dưới 75.000đ</label><label><input type="checkbox"> 75.000–150.000đ</label>
+  </aside>
+  <main>
+   <div class="result-bar"><span><b>{{ products|length }}</b> mẫu{% if q %} cho "{{ q }}"{% endif %}</span><select onchange="location.href=this.value"><option value="{{ url_for('templates', q=q, category=category, sort='new') }}">Mới nhất</option><option value="{{ url_for('templates', q=q, category=category, sort='price_asc') }}">Giá thấp → cao</option><option value="{{ url_for('templates', q=q, category=category, sort='price_desc') }}">Giá cao → thấp</option></select></div>
+   <div class="products">
+   {% for p in products %}
+    <article class="product-card">
+     <a href="{{ url_for('product', product_id=p.id) }}"><div class="thumb {{ p.preview }}"><span class="badge">{{ p.badge or 'DỄ CHỈNH SỬA' }}</span><div class="thumb-no">{{ "%02d"|format(p.id) }}</div><div class="thumb-title">{{ p.name }}</div><div class="thumb-meta">{{ p.category }} · {{ p.slides }} trang chiếu</div></div></a>
+     <div class="pc-body"><div class="pc-cat">{{ p.category }}</div><h3><a href="{{ url_for('product', product_id=p.id) }}">{{ p.name }}</a></h3><div class="pc-bottom"><b>{{ "{:,.0f}".format(p.price) }}đ</b><a href="{{ url_for('product', product_id=p.id) }}">Chi tiết →</a></div></div>
+    </article>
+   {% else %}<div class="empty">Không tìm thấy mẫu phù hợp.</div>{% endfor %}
+   </div>
+  </main>
+ </div>
+</section>
+{% endblock %}
