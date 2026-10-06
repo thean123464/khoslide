@@ -1,1 +1,39 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}KhoSlide — Template PowerPoint đẹp & chuyên nghiệp{% endblock %}</title><meta name="description" content="KhoSlide — kho template PowerPoint đẹp, hiện đại, dễ chỉnh sửa và tải nhanh."><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head><body><header class="nav"><div class="container nav-inner"><a class="logo" href="{{ url_for('index') }}"><span class="logo-mark">K</span>KhoSlide</a><nav class="nav-links"><a href="{{ url_for('index') }}">Trang chủ</a><a href="{{ url_for('templates_page') }}">Kho template</a><a href="{{ url_for('templates_page') }}#categories">Danh mục</a></nav><div class="nav-actions"><a class="btn btn-light btn-sm" href="{{ url_for('templates_page') }}">Xem kho</a><a class="btn btn-primary btn-sm" href="{{ url_for('templates_page') }}">Khám phá ngay →</a><span class="mobile-menu">☰</span></div></div></header>{% block content %}{% endblock %}<footer class="footer"><div class="container"><div class="footer-grid"><div><a class="logo" href="{{ url_for('index') }}"><span class="logo-mark">K</span>KhoSlide</a><p>Kho template PowerPoint hiện đại dành cho học sinh, sinh viên, giáo viên và người đi làm.</p></div><div><h4>Khám phá</h4><a href="{{ url_for('templates_page') }}">Tất cả template</a><a href="{{ url_for('templates_page') }}">Template nổi bật</a></div><div><h4>Hỗ trợ</h4><a href="{{ url_for('index') }}#why">Vì sao KhoSlide?</a><a href="{{ url_for('index') }}#contact">Liên hệ</a></div><div><h4>KhoSlide</h4><a href="{{ url_for('index') }}">Trang chủ</a><a href="{{ url_for('templates_page') }}">Mua template</a></div></div><div class="footer-bottom"><span>© 2026 KhoSlide. All rights reserved.</span><span>Thiết kế với ♥ cho người làm slide.</span></div></div></footer></body></html>
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}KhoSlide — Template PowerPoint đẹp & chuyên nghiệp{% endblock %}</title>
+<meta name="description" content="KhoSlide — kho template PowerPoint đẹp, hiện đại, dễ chỉnh sửa và tải nhanh.">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="logo" href="{{ url_for('index') }}"><span class="logo-mark">K</span>KhoSlide</a>
+    <nav class="nav-links">
+      <a href="{{ url_for('index') }}">Trang chủ</a>
+      <a href="{{ url_for('templates') }}">Kho template</a>
+      <a href="{{ url_for('templates') }}#categories">Danh mục</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-light btn-sm" href="{{ url_for('templates') }}">Xem kho</a>
+      <a class="btn btn-primary btn-sm" href="{{ url_for('templates') }}">Khám phá ngay →</a>
+    </div>
+  </div>
+</header>
+{% block content %}{% endblock %}
+<footer class="footer">
+  <div class="container footer-grid">
+    <div>
+      <a class="logo" href="{{ url_for('index') }}"><span class="logo-mark">K</span>KhoSlide</a>
+      <p>Kho template PowerPoint hiện đại dành cho học sinh, sinh viên, giáo viên và người đi làm.</p>
+    </div>
+    <div><h4>Khám phá</h4><a href="{{ url_for('templates') }}">Tất cả template</a><a href="{{ url_for('templates') }}">Template mới</a></div>
+    <div><h4>Hỗ trợ</h4><a href="{{ url_for('index') }}#why">Vì sao KhoSlide?</a><a href="{{ url_for('index') }}#contact">Liên hệ</a></div>
+    <div><h4>KhoSlide</h4><a href="{{ url_for('index') }}">Trang chủ</a><a href="{{ url_for('templates') }}">Mua template</a></div>
+  </div>
+  <div class="container footer-bottom"><span>© 2026 KhoSlide. All rights reserved.</span><span>Thiết kế với ♥ cho người làm slide.</span></div>
+</footer>
+</body>
+</html>

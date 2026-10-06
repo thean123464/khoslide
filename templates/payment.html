@@ -1,1 +1,8 @@
-{% extends "base.html" %}{% block title %}Thanh toán — KhoSlide{% endblock %}{% block content %}<div class="container"><div class="form-card payment-box"><span class="pill">THANH TOÁN ĐƠN #{{ o.id }}</span><h1>Quét QR để thanh toán</h1><p>Sử dụng ứng dụng ngân hàng để quét mã bên dưới.</p>{% if qr_url %}<img class="qr" src="{{ qr_url }}" alt="QR thanh toán">{% endif %}<div class="bank-info"><div>Ngân hàng: <strong>{{ bank_code }}</strong></div><div>Số tài khoản: <strong>{{ bank_account }}</strong></div><div>Chủ tài khoản: <strong>{{ bank_owner }}</strong></div><div>Số tiền: <strong>{{ "{:,.0f}".format(o.amount or 0) }}đ</strong></div><div>Nội dung: <strong>KSL{{ o.id }}</strong></div></div></div></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Thanh toán — KhoSlide{% endblock %}
+{% block content %}
+<section class="section narrow"><div class="payment-card"><div class="badge">BƯỚC 2 / 2</div><h1>Thanh toán đơn hàng</h1><p>{{ o.name }}</p><div class="payment-layout"><div><img class="qr" src="{{ qr_url }}" alt="QR thanh toán"></div><div class="bank"><div><small>Số tiền</small><strong>{{ "{:,.0f}".format(o.price) }}đ</strong></div><div><small>Ngân hàng</small><strong>{{ bank_code }}</strong></div><div><small>Số tài khoản</small><strong>{{ bank_account }}</strong></div><div><small>Chủ tài khoản</small><strong>{{ bank_owner }}</strong></div><div><small>Nội dung chuyển khoản</small><strong class="code">{{ o.payment_code }}</strong></div></div></div><div class="waiting">Hệ thống sẽ tự kiểm tra giao dịch. Vui lòng giữ nguyên nội dung chuyển khoản.</div></div></section>
+<script>
+setInterval(async()=>{try{const r=await fetch("{{ url_for('payment_status', order_id=o.id) }}");const d=await r.json();if(d.paid&&d.success_url)location.href=d.success_url;}catch(e){}},4000);
+</script>
+{% endblock %}

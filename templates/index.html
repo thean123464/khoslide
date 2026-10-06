@@ -1,1 +1,34 @@
-{% extends "base.html" %}{% block title %}KhoSlide — Template PowerPoint đẹp & chuyên nghiệp{% endblock %}{% block content %}<section class="hero"><div class="container hero-grid"><div><div class="badge"><span class="badge-dot"></span>TEMPLATE POWERPOINT VIỆT NAM</div><h1>Biến bài thuyết trình thành <span>một trải nghiệm.</span></h1><p>Khám phá những mẫu PowerPoint đẹp, hiện đại và dễ chỉnh sửa. Chọn mẫu bạn thích, thanh toán nhanh và bắt đầu làm slide ngay.</p><div class="hero-actions"><a class="btn btn-primary" href="{{ url_for('templates_page') }}">Khám phá template →</a><a class="btn btn-light" href="#featured">Xem mẫu nổi bật</a></div><div class="hero-note">✓ File PowerPoint dễ chỉnh sửa &nbsp; ✓ Thanh toán QR nhanh &nbsp; ✓ Tải file sau khi mua</div></div><div class="mock-window"><div class="mock-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="mock-screen"><small>KHO SLIDE / PRESENTATION</small><h3>Make your<br>ideas stand out.</h3><p>Thiết kế sạch. Bố cục chuyên nghiệp. Sẵn sàng cho bài thuyết trình tiếp theo.</p></div></div></div></section><section class="section" id="featured"><div class="container"><div class="section-head"><div><h2>Template nổi bật</h2><p>Những mẫu được chọn để bạn bắt đầu nhanh hơn.</p></div><a class="section-link" href="{{ url_for('templates_page') }}">Xem tất cả →</a></div>{% if products %}<div class="grid">{% for p in products[:6] %}<article class="card"><a href="{{ url_for('product_page',product_id=p.id) }}"><div class="thumb">{% if p.preview and (p.preview.startswith('http://') or p.preview.startswith('https://')) %}<img src="{{ p.preview }}" alt="{{ p.name }}">{% else %}<div class="thumb-art {% if loop.index%3==2 %}alt{% elif loop.index%3==0 %}gold{% endif %}"><span>K H O S L I D E</span><b>{{ p.name }}</b></div>{% endif %}</div></a><div class="card-body"><div class="card-title">{{ p.name }}</div><div class="card-meta"><span>{{ p.category or 'PowerPoint' }}</span><span class="price {% if not p.price or p.price==0 %}free{% endif %}">{% if p.price and p.price>0 %}{{ "{:,.0f}".format(p.price) }}đ{% else %}Miễn phí{% endif %}</span></div><div class="card-footer"><span class="pill">PPTX</span><a class="btn btn-primary btn-sm" href="{{ url_for('product_page',product_id=p.id) }}">Xem mẫu</a></div></div></article>{% endfor %}</div>{% else %}<div class="empty">KhoSlide đang cập nhật những template đầu tiên.</div>{% endif %}</div></section><section class="section" id="why"><div class="container"><div class="section-head"><div><h2>Không chỉ là một file PPT.</h2><p>Mọi thứ được thiết kế để bạn làm slide nhanh và đẹp hơn.</p></div></div><div class="features"><div class="feature"><div class="feature-icon">✦</div><h3>Thiết kế hiện đại</h3><p>Bố cục rõ ràng, typography đẹp và phong cách phù hợp với bài học, thuyết trình và dự án.</p></div><div class="feature"><div class="feature-icon">⚡</div><h3>Mua & tải nhanh</h3><p>Thanh toán bằng QR ngân hàng và nhận file theo quy trình đơn giản.</p></div><div class="feature"><div class="feature-icon">✎</div><h3>Dễ chỉnh sửa</h3><p>Thay nội dung, hình ảnh và màu sắc để biến template thành bài thuyết trình của riêng bạn.</p></div></div></div></section><section class="section" id="contact"><div class="container"><div class="cta"><h2>Sẵn sàng làm slide<br>ấn tượng hơn?</h2><p>Chọn một template phù hợp với chủ đề của bạn và bắt đầu thiết kế ngay hôm nay.</p><a class="btn" href="{{ url_for('templates_page') }}">Khám phá KhoSlide →</a></div></div></section>{% endblock %}
+{% extends "base.html" %}
+{% block content %}
+<section class="hero"><div class="container hero-grid">
+<div>
+<div class="badge"><span class="badge-dot"></span>TEMPLATE POWERPOINT VIỆT NAM</div>
+<h1>Biến bài thuyết trình thành <span>một trải nghiệm.</span></h1>
+<p>Khám phá những mẫu PowerPoint đẹp, hiện đại và dễ chỉnh sửa. Chọn mẫu bạn thích, thanh toán nhanh và bắt đầu làm slide ngay.</p>
+<div class="hero-actions"><a class="btn btn-primary" href="{{ url_for('templates') }}">Khám phá template →</a><a class="btn btn-light" href="#featured">Xem mẫu nổi bật</a></div>
+<div class="hero-note">✓ File PowerPoint dễ chỉnh sửa &nbsp; ✓ Thanh toán QR nhanh &nbsp; ✓ Tải file sau khi mua</div>
+</div>
+<div class="mock-window"><div class="mock-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="mock-screen"><small>KHO SLIDE / PRESENTATION</small><h3>Make your<br>ideas stand out.</h3><p>Thiết kế sạch. Bố cục chuyên nghiệp. Sẵn sàng cho bài thuyết trình tiếp theo.</p></div></div>
+</div></section>
+
+<section class="section" id="featured"><div class="container">
+<div class="section-head"><div><h2>Template nổi bật</h2><p>Những mẫu được chọn để bạn bắt đầu nhanh hơn.</p></div><a class="section-link" href="{{ url_for('templates') }}">Xem tất cả →</a></div>
+{% if products %}<div class="grid">
+{% for p in products[:6] %}
+<article class="card">
+<a href="{{ url_for('product', product_id=p.id) }}"><div class="thumb">
+{% if p.preview and (p.preview.startswith('http://') or p.preview.startswith('https://')) %}<img src="{{ p.preview }}" alt="{{ p.name }}">
+{% else %}<div class="thumb-art {% if loop.index%3==2 %}alt{% elif loop.index%3==0 %}gold{% endif %}"><span>K H O S L I D E</span><b>{{ p.name }}</b></div>{% endif %}
+</div></a>
+<div class="card-body"><div class="card-title">{{ p.name }}</div><div class="card-meta"><span>{{ p.category or 'PowerPoint' }}</span><span class="price {% if not p.price or p.price==0 %}free{% endif %}">{% if p.price and p.price>0 %}{{ "{:,.0f}".format(p.price) }}đ{% else %}Miễn phí{% endif %}</span></div>
+<div class="card-footer"><span class="pill">PPTX</span><a class="btn btn-primary btn-sm" href="{{ url_for('product', product_id=p.id) }}">Xem mẫu</a></div></div>
+</article>
+{% endfor %}</div>{% else %}<div class="empty">KhoSlide đang cập nhật những template đầu tiên.</div>{% endif %}
+</div></section>
+
+<section class="section" id="why"><div class="container"><div class="section-head"><div><h2>Không chỉ là một file PPT.</h2><p>Mọi thứ được thiết kế để bạn làm slide nhanh và đẹp hơn.</p></div></div>
+<div class="features"><div class="feature"><div class="feature-icon">✦</div><h3>Thiết kế hiện đại</h3><p>Bố cục rõ ràng, typography đẹp và phong cách phù hợp với bài học, thuyết trình và dự án.</p></div>
+<div class="feature"><div class="feature-icon">⚡</div><h3>Mua & tải nhanh</h3><p>Thanh toán bằng QR ngân hàng và nhận file theo quy trình đơn giản.</p></div>
+<div class="feature"><div class="feature-icon">✎</div><h3>Dễ chỉnh sửa</h3><p>Thay nội dung, hình ảnh và màu sắc để biến template thành bài thuyết trình của riêng bạn.</p></div></div></div></section>
+<section class="section" id="contact"><div class="container"><div class="cta"><h2>Sẵn sàng làm slide<br>ấn tượng hơn?</h2><p>Chọn một template phù hợp với chủ đề của bạn và bắt đầu thiết kế ngay hôm nay.</p><a class="btn" href="{{ url_for('templates') }}">Khám phá KhoSlide →</a></div></div></section>
+{% endblock %}

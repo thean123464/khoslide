@@ -1,1 +1,11 @@
-{% extends "base.html" %}{% block title %}Quản trị — KhoSlide{% endblock %}{% block content %}<div class="container admin-wrap"><div class="admin-header"><h1>Quản trị KhoSlide</h1><a class="btn btn-light" href="{{ url_for('index') }}">Về trang chủ</a></div><div class="admin-grid"><div class="admin-card"><h2>Sản phẩm</h2><table class="table"><tr><th>Tên</th><th>Danh mục</th><th>Giá</th></tr>{% for p in products %}<tr><td>{{ p.name }}</td><td>{{ p.category }}</td><td>{{ "{:,.0f}".format(p.price or 0) }}đ</td></tr>{% endfor %}</table></div><div class="admin-card"><h2>Đơn hàng</h2><table class="table"><tr><th>ID</th><th>Email</th><th>Số tiền</th><th>Trạng thái</th></tr>{% for o in orders %}<tr><td>#{{ o.id }}</td><td>{{ o.email }}</td><td>{{ "{:,.0f}".format(o.amount or 0) }}đ</td><td>{{ o.status }}</td></tr>{% endfor %}</table></div></div></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Quản trị — KhoSlide{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container"><div class="badge">ADMIN PANEL</div><h1>Quản trị KhoSlide</h1><p>Thêm template và theo dõi đơn hàng.</p></div></section>
+<section class="section"><div class="container">
+<div class="admin-box"><h2>Thêm template</h2><form class="admin-form" method="post" action="{{ url_for('admin_add') }}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="name" placeholder="Tên template" required><input name="price" type="number" min="1" placeholder="Giá" required><input name="slides" type="number" min="1" value="10"><select name="category">{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select><input name="badge" placeholder="Badge (tuỳ chọn)"><input name="description" placeholder="Mô tả"><input name="file" type="file" accept=".ppt,.pptx,.pdf,.zip"><button class="btn btn-primary" type="submit">Thêm template</button></form></div>
+<div class="admin-box"><h2>Template</h2>{% for p in products %}<div class="admin-row"><strong>{{ p.name }}</strong><span>{{ "{:,.0f}".format(p.price) }}đ</span><span>{{ p.category }}</span></div>{% else %}<p>Chưa có template.</p>{% endfor %}</div>
+<div class="admin-box"><h2>Đơn hàng</h2>{% for o in orders %}<div class="admin-row"><strong>#{{ o.id }} — {{ o.name }}</strong><span>{{ o.status }}</span><span>{{ o.customer_email }}</span></div>{% else %}<p>Chưa có đơn hàng.</p>{% endfor %}</div>
+<a class="back" href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+</div></section>
+{% endblock %}
