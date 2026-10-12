@@ -20,6 +20,7 @@
       <a class="btn btn-light btn-sm" href="{{ url_for('templates') }}">Xem kho</a>
       <a class="btn btn-primary btn-sm" href="{{ url_for('templates') }}">Khám phá ngay →</a>
     </div>
+  <div class="nav-auth">{% if current_user %}<span>Xin chào, {{ current_user.name }}</span><form method="post" action="{{ url_for('auth_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost" type="submit">Đăng xuất</button></form>{% else %}<a class="btn btn-ghost" href="{{ url_for('auth_login',provider='google') }}">Đăng nhập Google</a><a class="btn btn-ghost" href="{{ url_for('auth_login',provider='facebook') }}">Facebook</a>{% endif %}</div>
   </div>
 </header>
 {% block content %}{% endblock %}

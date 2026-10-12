@@ -20,7 +20,7 @@
 {% if p.preview and (p.preview.startswith('http://') or p.preview.startswith('https://')) %}<img src="{{ p.preview }}" alt="{{ p.name }}">
 {% else %}<div class="thumb-art {% if loop.index%3==2 %}alt{% elif loop.index%3==0 %}gold{% endif %}"><span>K H O S L I D E</span><b>{{ p.name }}</b></div>{% endif %}
 </div></a>
-<div class="card-body"><div class="card-title">{{ p.name }}</div><div class="card-meta"><span>{{ p.category or 'PowerPoint' }}</span><span class="price {% if not p.price or p.price==0 %}free{% endif %}">{% if p.price and p.price>0 %}{{ "{:,.0f}".format(p.price) }}đ{% else %}Miễn phí{% endif %}</span></div>
+<div class="card-body"><div class="card-title">{{ p.name }}</div><div class="card-meta"><span>{{ p.category or 'PowerPoint' }}</span><span class="price {% if not p.price or p.price==0 %}free{% endif %}">{% if p.price and p.price>0 %}{% if p.free_enabled or (p.free_after_orders and p.paid_order_count|default(0)|int >= p.free_after_orders|int) %}Miễn phí{% else %}{{ "{:,.0f}".format(p.price) }}đ{% endif %}{% else %}Miễn phí{% endif %}</span></div>
 <div class="card-footer"><span class="pill">PPTX</span><a class="btn btn-primary btn-sm" href="{{ url_for('product', product_id=p.id) }}">Xem mẫu</a></div></div>
 </article>
 {% endfor %}</div>{% else %}<div class="empty">KhoSlide đang cập nhật những template đầu tiên.</div>{% endif %}

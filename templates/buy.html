@@ -3,5 +3,5 @@
 {% block content %}
 <section class="section narrow"><div class="container form-card"><div class="badge">BƯỚC 1 / 2</div><h1>Thông tin nhận template</h1><p>{{ p.name }}</p>
 {% if error %}<div class="alert">{{ error }}</div>{% endif %}
-<form method="post"><label>Họ và tên<input name="name" required></label><label>Email<input name="email" type="email" required></label><button class="btn btn-primary btn-wide" type="submit">Tiếp tục thanh toán →</button></form></div></section>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Họ và tên<input name="name" required></label><label>Email<input name="email" type="email" required></label><button class="btn btn-primary btn-wide" type="submit">Tiếp tục thanh toán →</button></form></div></section>
 {% endblock %}
