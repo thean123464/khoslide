@@ -237,19 +237,39 @@ def storage_headers(content_type=None):
 def ensure_storage_bucket():
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return
+
     url = f"{SUPABASE_URL}/storage/v1/bucket"
+
     try:
         r = requests.post(
             url,
-            headers={**storage_headers("application/json"), "Content-Type": "application/json"},
-            json={"id": SUPABASE_BUCKET, "name": SUPABASE_BUCKET, "public": False},
+            headers=storage_headers("application/json"),
+            json={
+                "id": SUPABASE_BUCKET,
+                "name": SUPABASE_BUCKET,
+                "public": False,
+            },
             timeout=15,
         )
-        
-        
-            raise RuntimeError(f"Không tạo được Supabase Storage bucket: {r.status_code} {r.text[:300]}")
+
+        bucket_exists = (
+            "BucketAlreadyExists" in r.text
+            or '"statusCode":"409"' in r.text
+            or '"statusCode": "409"' in r.text
+        )
+
+        if r.status_code not in (200, 201) and not (
+            r.status_code == 400 and bucket_exists
+        ):
+            raise RuntimeError(
+                f"Không tạo được Supabase Storage bucket: "
+                f"{r.status_code} {r.text[:300]}"
+            )
+
     except requests.RequestException as e:
-        raise RuntimeError(f"Không kết nối được Supabase Storage: {e}")
+        raise RuntimeError(
+            f"Không kết nối được Supabase Storage: {e}"
+        )
 
 
 def storage_upload(file_storage, storage_path):
@@ -273,7 +293,7 @@ def storage_signed_url(storage_path, expires=300):
     url = f"{SUPABASE_URL}/storage/v1/object/sign/{quote(SUPABASE_BUCKET)}/{quote(storage_path, safe='/')}"
     r = requests.post(
         url,
-        headers={**storage_headers("application/json"), "Content-Type": "application/json"},
+        headers=storage_headers("application/json"),
         json={"expiresIn": expires},
         timeout=30,
     )
@@ -298,17 +318,21 @@ def storage_signed_url(storage_path, expires=300):
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "").rstrip("/")
 
+
 def public_product_price(p):
     if p.get("free_enabled") or (p.get("free_after_orders") and p.get("paid_order_count", 0) >= p["free_after_orders"]):
         return 0
     return int(p.get("price") or 0)
 
+
 def product_with_count(cur, product_id):
     cur.execute("SELECT p.*, (SELECT COUNT(*) FROM orders o WHERE o.product_id=p.id AND o.status='PAID' AND COALESCE(o.is_free,FALSE)=FALSE) AS paid_order_count FROM products p WHERE p.id=%s", (product_id,))
     return cur.fetchone()
 
+
 def supabase_auth_headers():
     return {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"}
+
 
 @app.route("/auth/login/<provider>")
 def auth_login(provider):
@@ -320,53 +344,100 @@ def auth_login(provider):
     import hashlib, base64
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
     state = secrets.token_urlsafe(24)
-    session["oauth_verifier"] = verifier; session["oauth_state"] = state; session["oauth_next"] = request.args.get("next", "")
+    session["oauth_verifier"] = verifier
+    session["oauth_state"] = state
+    session["oauth_next"] = request.args.get("next", "")
     callback = (APP_BASE_URL or request.url_root.rstrip("/")) + url_for("auth_callback")
     from urllib.parse import urlencode
-    params = urlencode({"provider": provider, "redirect_to": callback, "code_challenge": challenge, "code_challenge_method": "s256", "state": state})
+    params = urlencode({
+        "provider": provider,
+        "redirect_to": callback,
+        "code_challenge": challenge,
+        "code_challenge_method": "s256",
+        "state": state,
+    })
     return redirect(f"{SUPABASE_URL}/auth/v1/authorize?{params}")
+
 
 @app.route("/auth/callback")
 def auth_callback():
     err = request.args.get("error_description") or request.args.get("error")
     code = request.args.get("code", "")
     if err or not code:
-        session.pop("oauth_verifier", None); session.pop("oauth_state", None); session.pop("oauth_next", None)
+        session.pop("oauth_verifier", None)
+        session.pop("oauth_state", None)
+        session.pop("oauth_next", None)
         return redirect(url_for("index"))
-    verifier = session.pop("oauth_verifier", None); session.pop("oauth_state", None); next_url = session.pop("oauth_next", "")
+
+    verifier = session.pop("oauth_verifier", None)
+    session.pop("oauth_state", None)
+    next_url = session.pop("oauth_next", "")
+
     try:
-        r = requests.post(f"{SUPABASE_URL}/auth/v1/token?grant_type=pkce", headers=supabase_auth_headers(), json={"auth_code": code, "code_verifier": verifier}, timeout=15)
-        r.raise_for_status(); data = r.json(); user = data.get("user") or {}
-        if not user.get("id"): raise ValueError("Supabase không trả về user")
-        session["user"] = {"id": str(user["id"]), "email": user.get("email", ""), "name": (user.get("user_metadata") or {}).get("full_name") or (user.get("user_metadata") or {}).get("name") or user.get("email", "Khách hàng")}
+        r = requests.post(
+            f"{SUPABASE_URL}/auth/v1/token?grant_type=pkce",
+            headers=supabase_auth_headers(),
+            json={"auth_code": code, "code_verifier": verifier},
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
+        user = data.get("user") or {}
+        if not user.get("id"):
+            raise ValueError("Supabase không trả về user")
+
+        metadata = user.get("user_metadata") or {}
+        session["user"] = {
+            "id": str(user["id"]),
+            "email": user.get("email", ""),
+            "name": metadata.get("full_name") or metadata.get("name") or user.get("email", "Khách hàng"),
+        }
         session.permanent = True
     except Exception:
         return "Đăng nhập Supabase thất bại. Kiểm tra provider, callback URL và SUPABASE_ANON_KEY.", 502
+
     return redirect(next_url if next_url.startswith("/") else url_for("index"))
+
 
 @app.route("/auth/logout", methods=["POST"])
 def auth_logout():
-    check_csrf(); session.pop("user", None); return redirect(url_for("index"))
+    check_csrf()
+    session.pop("user", None)
+    return redirect(url_for("index"))
+
 
 @app.context_processor
 def inject_user_context():
     return {"current_user": session.get("user"), "zalo_url": "https://zalo.me/0355915884"}
 
+
 @app.route("/product/<int:product_id>/comment", methods=["POST"])
 def add_comment(product_id):
-    check_csrf(); user = session.get("user")
-    if not user: return redirect(url_for("auth_login", provider="google", next=url_for("product", product_id=product_id)))
+    check_csrf()
+    user = session.get("user")
+    if not user:
+        return redirect(url_for("auth_login", provider="google", next=url_for("product", product_id=product_id)))
+
     body = request.form.get("body", "").strip()
-    if not body or len(body) > 2000: abort(400, description="Bình luận phải từ 1 đến 2000 ký tự.")
-    con=db()
+    if not body or len(body) > 2000:
+        abort(400, description="Bình luận phải từ 1 đến 2000 ký tự.")
+
+    con = db()
     try:
         with con.cursor() as cur:
-            cur.execute("SELECT id FROM products WHERE id=%s",(product_id,))
-            if not cur.fetchone(): abort(404)
-            cur.execute("INSERT INTO product_comments(product_id,user_id,user_name,user_email,body) VALUES(%s,%s,%s,%s,%s)",(product_id,user["id"],user["name"],user.get("email", ""),body))
+            cur.execute("SELECT id FROM products WHERE id=%s", (product_id,))
+            if not cur.fetchone():
+                abort(404)
+            cur.execute(
+                "INSERT INTO product_comments(product_id,user_id,user_name,user_email,body) VALUES(%s,%s,%s,%s,%s)",
+                (product_id, user["id"], user["name"], user.get("email", ""), body),
+            )
         con.commit()
-    finally: con.close()
-    return redirect(url_for("product",product_id=product_id)+"#comments")
+    finally:
+        con.close()
+
+    return redirect(url_for("product", product_id=product_id) + "#comments")
+
 
 def admin_required(view):
     @wraps(view)
@@ -376,52 +447,83 @@ def admin_required(view):
         return view(*args, **kwargs)
     return wrapped
 
+
 @app.route("/admin/product/<int:product_id>/free", methods=["POST"])
 @admin_required
 def admin_free_toggle(product_id):
-    check_csrf(); enabled=request.form.get("free_enabled")=="1"
-    con=db()
+    check_csrf()
+    enabled = request.form.get("free_enabled") == "1"
+    con = db()
     try:
-        with con.cursor() as cur: cur.execute("UPDATE products SET free_enabled=%s, free_unlocked_at=CASE WHEN %s THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=%s",(enabled,enabled,product_id))
+        with con.cursor() as cur:
+            cur.execute(
+                "UPDATE products SET free_enabled=%s, free_unlocked_at=CASE WHEN %s THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=%s",
+                (enabled, enabled, product_id),
+            )
         con.commit()
-    finally: con.close()
+    finally:
+        con.close()
     return redirect(url_for("admin"))
+
 
 @app.route("/admin/product/<int:product_id>/threshold", methods=["POST"])
 @admin_required
 def admin_free_threshold(product_id):
-    check_csrf(); raw=request.form.get("free_after_orders", "").strip()
-    try: threshold=int(raw) if raw else None
-    except ValueError: abort(400, description="Ngưỡng đơn hàng không hợp lệ.")
-    if threshold is not None and threshold < 1: abort(400, description="Ngưỡng phải từ 1 đơn trở lên.")
-    con=db()
+    check_csrf()
+    raw = request.form.get("free_after_orders", "").strip()
     try:
-        with con.cursor() as cur: cur.execute("UPDATE products SET free_after_orders=%s, updated_at=NOW() WHERE id=%s",(threshold,product_id))
+        threshold = int(raw) if raw else None
+    except ValueError:
+        abort(400, description="Ngưỡng đơn hàng không hợp lệ.")
+    if threshold is not None and threshold < 1:
+        abort(400, description="Ngưỡng phải từ 1 đơn trở lên.")
+
+    con = db()
+    try:
+        with con.cursor() as cur:
+            cur.execute(
+                "UPDATE products SET free_after_orders=%s, updated_at=NOW() WHERE id=%s",
+                (threshold, product_id),
+            )
         con.commit()
-    finally: con.close()
+    finally:
+        con.close()
     return redirect(url_for("admin"))
+
 
 @app.route("/admin/order/<int:order_id>/free-approve", methods=["POST"])
 @admin_required
 def admin_free_approve(order_id):
-    check_csrf(); con=db()
+    check_csrf()
+    con = db()
     try:
         with con.cursor() as cur:
-            cur.execute("UPDATE orders SET status='PAID', is_free=TRUE, paid_at=NOW(), paid_amount=0, download_token=COALESCE(download_token,%s) WHERE id=%s AND status<>'PAID' RETURNING id",(secrets.token_urlsafe(32),order_id))
-            if not cur.fetchone(): con.rollback(); return "Đơn không tồn tại hoặc đã hoàn tất.", 400
+            cur.execute(
+                "UPDATE orders SET status='PAID', is_free=TRUE, paid_at=NOW(), paid_amount=0, download_token=COALESCE(download_token,%s) WHERE id=%s AND status<>'PAID' RETURNING id",
+                (secrets.token_urlsafe(32), order_id),
+            )
+            if not cur.fetchone():
+                con.rollback()
+                return "Đơn không tồn tại hoặc đã hoàn tất.", 400
         con.commit()
-    finally: con.close()
+    finally:
+        con.close()
     return redirect(url_for("admin"))
+
 
 @app.route("/admin/comment/<int:comment_id>/toggle", methods=["POST"])
 @admin_required
 def admin_comment_toggle(comment_id):
-    check_csrf(); con=db()
+    check_csrf()
+    con = db()
     try:
-        with con.cursor() as cur: cur.execute("UPDATE product_comments SET is_hidden=NOT is_hidden WHERE id=%s",(comment_id,))
+        with con.cursor() as cur:
+            cur.execute("UPDATE product_comments SET is_hidden=NOT is_hidden WHERE id=%s", (comment_id,))
         con.commit()
-    finally: con.close()
+    finally:
+        con.close()
     return redirect(url_for("admin"))
+
 
 @app.route("/")
 def index():
@@ -476,35 +578,64 @@ def product(product_id):
                 cur.execute("SELECT * FROM product_comments WHERE product_id=%s AND is_hidden=FALSE ORDER BY created_at DESC", (product_id,))
                 comments = cur.fetchall()
             else:
-                related = []; comments = []
+                related = []
+                comments = []
     finally:
         con.close()
+
     if not p:
         abort(404)
+
     return render_template("product.html", p=p, related=related, comments=comments, effective_price=public_product_price(p))
 
 
 @app.route("/buy/<int:product_id>", methods=["GET", "POST"])
 def buy(product_id):
-    con=db()
+    con = db()
     try:
         with con.cursor() as cur:
-            p=product_with_count(cur,product_id)
-            if not p: abort(404)
-            effective_price=public_product_price(p)
-            if request.method=="POST":
-                check_csrf(); user=session.get("user")
-                name=(request.form.get("name","").strip() or (user or {}).get("name", ""))
-                email=(request.form.get("email","").strip() or (user or {}).get("email", ""))
-                if not name or not email: return render_template("buy.html",p=p,error="Vui lòng nhập đầy đủ thông tin.",effective_price=effective_price)
-                status='PAID' if effective_price==0 else 'PENDING'
-                token=secrets.token_urlsafe(32); code=f"{PAYMENT_PREFIX}{uuid.uuid4().hex[:10].upper()}"
-                cur.execute("INSERT INTO orders(product_id,customer_name,customer_email,status,payment_code,download_token,paid_at,paid_amount,auth_user_id,is_free) VALUES(%s,%s,%s,%s,%s,%s,CASE WHEN %s THEN NOW() ELSE NULL END,%s,%s,%s) RETURNING id",(product_id,name,email,status,code,token,status=='PAID',0 if status=='PAID' else None,(user or {}).get('id'),status=='PAID'))
-                oid=cur.fetchone()["id"]; con.commit()
-                if status=='PAID': return redirect(url_for("success",order_id=oid,token=token))
-                return redirect(url_for("payment",order_id=oid))
-    finally: con.close()
-    return render_template("buy.html",p=p,effective_price=effective_price)
+            p = product_with_count(cur, product_id)
+            if not p:
+                abort(404)
+
+            effective_price = public_product_price(p)
+
+            if request.method == "POST":
+                check_csrf()
+                user = session.get("user")
+                name = request.form.get("name", "").strip() or (user or {}).get("name", "")
+                email = request.form.get("email", "").strip() or (user or {}).get("email", "")
+
+                if not name or not email:
+                    return render_template(
+                        "buy.html",
+                        p=p,
+                        error="Vui lòng nhập đầy đủ thông tin.",
+                        effective_price=effective_price,
+                    )
+
+                status = "PAID" if effective_price == 0 else "PENDING"
+                token = secrets.token_urlsafe(32)
+                code = f"{PAYMENT_PREFIX}{uuid.uuid4().hex[:10].upper()}"
+
+                cur.execute(
+                    "INSERT INTO orders(product_id,customer_name,customer_email,status,payment_code,download_token,paid_at,paid_amount,auth_user_id,is_free) VALUES(%s,%s,%s,%s,%s,%s,CASE WHEN %s THEN NOW() ELSE NULL END,%s,%s,%s) RETURNING id",
+                    (
+                        product_id, name, email, status, code, token,
+                        status == "PAID", 0 if status == "PAID" else None,
+                        (user or {}).get("id"), status == "PAID",
+                    ),
+                )
+                oid = cur.fetchone()["id"]
+                con.commit()
+
+                if status == "PAID":
+                    return redirect(url_for("success", order_id=oid, token=token))
+                return redirect(url_for("payment", order_id=oid))
+    finally:
+        con.close()
+
+    return render_template("buy.html", p=p, effective_price=effective_price)
 
 
 def qr_url_for_order(o):
@@ -528,17 +659,28 @@ def payment(order_id):
     con = db()
     try:
         with con.cursor() as cur:
-            cur.execute("""SELECT orders.*,products.name,products.price FROM orders
-                         JOIN products ON products.id=orders.product_id WHERE orders.id=%s""", (order_id,))
+            cur.execute(
+                """SELECT orders.*,products.name,products.price FROM orders
+                   JOIN products ON products.id=orders.product_id WHERE orders.id=%s""",
+                (order_id,),
+            )
             o = cur.fetchone()
     finally:
         con.close()
+
     if not o:
         abort(404)
     if o["status"] == "PAID":
         return redirect(url_for("success", order_id=order_id, token=o["download_token"]))
-    return render_template("payment.html", o=o, qr_url=qr_url_for_order(o), bank_code=BANK_CODE,
-                           bank_account=BANK_ACCOUNT, bank_owner=BANK_OWNER)
+
+    return render_template(
+        "payment.html",
+        o=o,
+        qr_url=qr_url_for_order(o),
+        bank_code=BANK_CODE,
+        bank_account=BANK_ACCOUNT,
+        bank_owner=BANK_OWNER,
+    )
 
 
 @app.route("/payment-status/<int:order_id>")
@@ -550,12 +692,14 @@ def payment_status(order_id):
             o = cur.fetchone()
     finally:
         con.close()
+
     if not o:
         return jsonify({"ok": False}), 404
+
     return jsonify({
         "ok": True,
         "paid": o["status"] == "PAID",
-        "success_url": url_for("success", order_id=order_id, token=o["download_token"]) if o["status"] == "PAID" else None
+        "success_url": url_for("success", order_id=order_id, token=o["download_token"]) if o["status"] == "PAID" else None,
     })
 
 
@@ -565,17 +709,22 @@ def success(order_id):
     con = db()
     try:
         with con.cursor() as cur:
-            cur.execute("""SELECT orders.*,products.name,products.filename FROM orders
-                         JOIN products ON products.id=orders.product_id WHERE orders.id=%s""", (order_id,))
+            cur.execute(
+                """SELECT orders.*,products.name,products.filename FROM orders
+                   JOIN products ON products.id=orders.product_id WHERE orders.id=%s""",
+                (order_id,),
+            )
             o = cur.fetchone()
     finally:
         con.close()
+
     if not o:
         abort(404)
     if o["status"] != "PAID":
         return redirect(url_for("payment", order_id=order_id))
     if not secrets.compare_digest(token, o["download_token"] or ""):
         abort(403)
+
     return render_template("success.html", o=o)
 
 
@@ -584,21 +733,27 @@ def download(order_id, token):
     con = db()
     try:
         with con.cursor() as cur:
-            cur.execute("""SELECT orders.*,products.filename FROM orders
-                         JOIN products ON products.id=orders.product_id WHERE orders.id=%s""", (order_id,))
+            cur.execute(
+                """SELECT orders.*,products.filename FROM orders
+                   JOIN products ON products.id=orders.product_id WHERE orders.id=%s""",
+                (order_id,),
+            )
             o = cur.fetchone()
     finally:
         con.close()
+
     if not o or o["status"] != "PAID":
         abort(403)
     if not secrets.compare_digest(token, o["download_token"] or ""):
         abort(403)
     if not o["filename"]:
         return "Mẫu này chưa có file tải xuống.", 404
+
     try:
         signed = storage_signed_url(o["filename"], expires=300)
     except RuntimeError as e:
         return str(e), 503
+
     return redirect(signed)
 
 # ============================================================
@@ -608,6 +763,7 @@ def download(order_id, token):
 def sepay_webhook():
     if not SEPAY_API_KEY:
         return jsonify({"success": False, "message": "SEPAY_API_KEY chưa được cấu hình."}), 503
+
     auth = request.headers.get("Authorization", "")
     expected = "Apikey " + SEPAY_API_KEY
     if not secrets.compare_digest(auth, expected):
@@ -623,6 +779,7 @@ def sepay_webhook():
         amount = int(float(data.get("transferAmount") or 0))
     except (TypeError, ValueError):
         amount = 0
+
     account_number = str(data.get("accountNumber") or "")
     code = str(data.get("code") or "").strip().upper()
     content = str(data.get("content") or "")
@@ -646,8 +803,14 @@ def sepay_webhook():
                 con.rollback()
                 return jsonify({"success": True, "message": "Giao dịch đã xử lý"}), 200
 
-            cur.execute("SELECT o.*, p.price AS product_price FROM orders o JOIN products p ON p.id=o.product_id WHERE o.payment_code=%s FOR UPDATE OF o", (code,)) if code else None
-            order = cur.fetchone() if code else None
+            if code:
+                cur.execute(
+                    "SELECT o.*, p.price AS product_price FROM orders o JOIN products p ON p.id=o.product_id WHERE o.payment_code=%s FOR UPDATE OF o",
+                    (code,),
+                )
+                order = cur.fetchone()
+            else:
+                order = None
 
             if not order:
                 con.commit()
@@ -658,17 +821,32 @@ def sepay_webhook():
                 return jsonify({"success": False, "message": "Số tiền thanh toán chưa đủ"}), 400
 
             # Record the transaction only after the amount has passed validation.
-            cur.execute("""INSERT INTO sepay_transactions
-                (sepay_id,gateway,transaction_date,account_number,code,content,transfer_amount,reference_code,raw_body)
-                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (int(sepay_id), str(data.get("gateway") or ""), str(data.get("transactionDate") or ""),
-                 account_number, code, content, amount, reference_code, json.dumps(data, ensure_ascii=False)))
+            cur.execute(
+                """INSERT INTO sepay_transactions
+                   (sepay_id,gateway,transaction_date,account_number,code,content,transfer_amount,reference_code,raw_body)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (
+                    int(sepay_id),
+                    str(data.get("gateway") or ""),
+                    str(data.get("transactionDate") or ""),
+                    account_number,
+                    code,
+                    content,
+                    amount,
+                    reference_code,
+                    json.dumps(data, ensure_ascii=False),
+                ),
+            )
 
-            cur.execute("""UPDATE orders SET status='PAID', paid_at=NOW(),
-                         sepay_transaction_id=%s, payment_reference=%s, paid_amount=%s WHERE id=%s""",
-                        (int(sepay_id), reference_code, amount, order["id"]))
+            cur.execute(
+                """UPDATE orders SET status='PAID', paid_at=NOW(),
+                   sepay_transaction_id=%s, payment_reference=%s, paid_amount=%s WHERE id=%s""",
+                (int(sepay_id), reference_code, amount, order["id"]),
+            )
+
         con.commit()
         return jsonify({"success": True}), 200
+
     except psycopg2.IntegrityError:
         con.rollback()
         return jsonify({"success": True, "message": "Giao dịch đã được ghi nhận"}), 200
@@ -679,23 +857,26 @@ def sepay_webhook():
 # ADMIN
 # ============================================================
 
-
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if session.get("admin_logged_in"):
         return redirect(url_for("admin"))
+
     error = None
     if request.method == "POST":
         check_csrf()
         ip = _client_ip()
         locked, seconds = _login_locked(ip)
+
         if locked:
             error = f"Bạn thử đăng nhập quá nhiều lần. Vui lòng chờ khoảng {max(1, seconds // 60 + 1)} phút."
             return render_template("admin_login.html", error=error)
+
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         valid_user = secrets.compare_digest(username, ADMIN_USERNAME)
         valid_pass = secrets.compare_digest(password, ADMIN_PASSWORD)
+
         if valid_user and valid_pass:
             _clear_login_failures(ip)
             session.clear()
@@ -704,8 +885,10 @@ def admin_login():
             session["admin_username"] = username
             session.permanent = True
             return redirect(url_for("admin"))
+
         _record_login_failure(ip)
         error = "Tên đăng nhập hoặc mật khẩu không đúng."
+
     return render_template("admin_login.html", error=error)
 
 
@@ -723,13 +906,27 @@ def admin():
         with con.cursor() as cur:
             cur.execute("SELECT p.*, (SELECT COUNT(*) FROM orders o WHERE o.product_id=p.id AND o.status='PAID' AND COALESCE(o.is_free,FALSE)=FALSE) AS paid_order_count FROM products p ORDER BY p.id DESC")
             products = cur.fetchall()
-            cur.execute("""SELECT orders.*,products.name FROM orders JOIN products ON products.id=orders.product_id ORDER BY orders.id DESC""")
+
+            cur.execute(
+                """SELECT orders.*,products.name FROM orders
+                   JOIN products ON products.id=orders.product_id ORDER BY orders.id DESC"""
+            )
             orders = cur.fetchall()
-            cur.execute("SELECT c.*,p.name AS product_name FROM product_comments c JOIN products p ON p.id=c.product_id ORDER BY c.created_at DESC LIMIT 100")
+
+            cur.execute(
+                "SELECT c.*,p.name AS product_name FROM product_comments c JOIN products p ON p.id=c.product_id ORDER BY c.created_at DESC LIMIT 100"
+            )
             comments = cur.fetchall()
     finally:
         con.close()
-    return render_template("admin.html", products=products, orders=orders, comments=comments, categories=CATEGORIES[1:])
+
+    return render_template(
+        "admin.html",
+        products=products,
+        orders=orders,
+        comments=comments,
+        categories=CATEGORIES[1:],
+    )
 
 
 @app.route("/admin/add", methods=["POST"])
@@ -738,18 +935,26 @@ def admin_add():
     check_csrf()
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
+
     try:
         price = int(request.form.get("price", "0"))
         slides = int(request.form.get("slides", "10"))
     except ValueError:
         return "Giá hoặc số slide không hợp lệ.", 400
+
     category = request.form.get("category", "Kinh doanh")
     badge = request.form.get("badge", "")
     free_enabled = request.form.get("free_enabled") == "1"
     raw_threshold = request.form.get("free_after_orders", "").strip()
-    try: free_after_orders = int(raw_threshold) if raw_threshold else None
-    except ValueError: return "Ngưỡng đơn hàng không hợp lệ.", 400
-    if free_after_orders is not None and free_after_orders < 1: return "Ngưỡng phải từ 1 đơn trở lên.", 400
+
+    try:
+        free_after_orders = int(raw_threshold) if raw_threshold else None
+    except ValueError:
+        return "Ngưỡng đơn hàng không hợp lệ.", 400
+
+    if free_after_orders is not None and free_after_orders < 1:
+        return "Ngưỡng phải từ 1 đơn trở lên.", 400
+
     file = request.files.get("file")
     if not name or price < 0:
         return "Thiếu tên sản phẩm hoặc giá không hợp lệ.", 400
@@ -759,9 +964,11 @@ def admin_add():
         safe = secure_filename(file.filename)
         if not safe:
             return "Tên file không hợp lệ.", 400
+
         ext = os.path.splitext(safe)[1].lower()
         if ext not in {".ppt", ".pptx", ".pdf", ".zip"}:
             return "Chỉ nhận PPT, PPTX, PDF hoặc ZIP.", 400
+
         storage_path = f"products/{uuid.uuid4().hex}_{safe}"
         try:
             storage_upload(file, storage_path)
@@ -771,17 +978,27 @@ def admin_add():
     con = db()
     try:
         with con.cursor() as cur:
-            cur.execute("""INSERT INTO products(name,description,price,preview,filename,category,slides,format,badge,free_enabled,free_after_orders,free_unlocked_at)
-                           VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CASE WHEN %s THEN NOW() ELSE NULL END) RETURNING id""",
-                        (name, description, price, "custom", storage_path, category, slides, "PPTX", badge, free_enabled, free_after_orders, free_enabled))
+            cur.execute(
+                """INSERT INTO products
+                   (name,description,price,preview,filename,category,slides,format,badge,free_enabled,free_after_orders,free_unlocked_at)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CASE WHEN %s THEN NOW() ELSE NULL END)
+                   RETURNING id""",
+                (
+                    name, description, price, "custom", storage_path, category,
+                    slides, "PPTX", badge, free_enabled, free_after_orders, free_enabled,
+                ),
+            )
         con.commit()
+
     except Exception:
         con.rollback()
         if storage_path:
             storage_delete(storage_path)
         raise
+
     finally:
         con.close()
+
     return redirect(url_for("admin"))
 
 # ============================================================
