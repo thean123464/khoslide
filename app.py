@@ -367,6 +367,14 @@ def add_comment(product_id):
     finally: con.close()
     return redirect(url_for("product",product_id=product_id)+"#comments")
 
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("admin_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
 @app.route("/admin/product/<int:product_id>/free", methods=["POST"])
 @admin_required
 def admin_free_toggle(product_id):
@@ -669,13 +677,6 @@ def sepay_webhook():
 # ============================================================
 # ADMIN
 # ============================================================
-def admin_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("admin_logged_in"):
-            return redirect(url_for("admin_login", next=request.path))
-        return view(*args, **kwargs)
-    return wrapped
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
