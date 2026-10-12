@@ -245,7 +245,8 @@ def ensure_storage_bucket():
             json={"id": SUPABASE_BUCKET, "name": SUPABASE_BUCKET, "public": False},
             timeout=15,
         )
-        if r.status_code not in (200, 201, 409):
+        
+        
             raise RuntimeError(f"Không tạo được Supabase Storage bucket: {r.status_code} {r.text[:300]}")
     except requests.RequestException as e:
         raise RuntimeError(f"Không kết nối được Supabase Storage: {e}")
