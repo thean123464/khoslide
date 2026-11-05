@@ -29,6 +29,7 @@ if not DATABASE_URL or not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         )
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # Keep room for PPT files; image/demo limits are checked separately.
 
 # ============================================================
 # SECURITY
@@ -193,6 +194,8 @@ def init_db():
             cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS free_after_orders INTEGER")
             cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS free_unlocked_at TIMESTAMPTZ")
             cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()")
+            cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS cover_image TEXT")
+            cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS demo_filename TEXT")
             cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS auth_user_id TEXT")
             cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_free BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("CREATE TABLE IF NOT EXISTS product_comments( id BIGSERIAL PRIMARY KEY, product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE, user_id TEXT NOT NULL, user_name TEXT NOT NULL, user_email TEXT NOT NULL DEFAULT '', body TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), is_hidden BOOLEAN NOT NULL DEFAULT FALSE )")
@@ -274,6 +277,28 @@ def storage_delete(storage_path):
         requests.delete(url, headers=storage_headers(), timeout=30)
     except requests.RequestException:
         pass
+
+
+def upload_optional_asset(file_storage, kind, product_id=None):
+    """Upload a validated cover image or customer-facing PDF demo to private Storage."""
+    if not file_storage or not file_storage.filename:
+        return ""
+    safe = secure_filename(file_storage.filename)
+    ext = os.path.splitext(safe)[1].lower()
+    allowed = {"cover": {".jpg", ".jpeg", ".png", ".webp"}, "demo": {".pdf"}}
+    if not safe or ext not in allowed[kind]:
+        if kind == "cover":
+            raise ValueError("Ảnh bìa chỉ nhận JPG, JPEG, PNG hoặc WEBP.")
+        raise ValueError("File demo hiện chỉ nhận PDF để khách xem trực tiếp trên trình duyệt.")
+    file_storage.stream.seek(0, os.SEEK_END)
+    size = file_storage.stream.tell()
+    file_storage.stream.seek(0)
+    limit = 8 * 1024 * 1024 if kind == "cover" else 25 * 1024 * 1024
+    if size > limit:
+        raise ValueError("Ảnh bìa tối đa 8 MB; file demo PDF tối đa 25 MB.")
+    path = f"{kind}s/{product_id or 'new'}/{uuid.uuid4().hex}_{safe}"
+    storage_upload(file_storage, path)
+    return path
 
 
 def storage_signed_url(storage_path, expires=300):
@@ -478,6 +503,34 @@ def templates():
     finally:
         con.close()
     return render_template("templates.html", products=products, categories=CATEGORIES, q=q, category=category, sort=sort)
+
+
+@app.route("/product/<int:product_id>/cover")
+def product_cover(product_id):
+    con = db()
+    try:
+        with con.cursor() as cur:
+            cur.execute("SELECT cover_image FROM products WHERE id=%s", (product_id,))
+            row = cur.fetchone()
+    finally:
+        con.close()
+    if not row or not row.get("cover_image"):
+        abort(404)
+    return redirect(storage_signed_url(row["cover_image"], expires=3600))
+
+
+@app.route("/product/<int:product_id>/demo")
+def product_demo(product_id):
+    con = db()
+    try:
+        with con.cursor() as cur:
+            cur.execute("SELECT demo_filename FROM products WHERE id=%s", (product_id,))
+            row = cur.fetchone()
+    finally:
+        con.close()
+    if not row or not row.get("demo_filename"):
+        abort(404)
+    return redirect(storage_signed_url(row["demo_filename"], expires=300))
 
 
 @app.route("/product/<int:product_id>")
@@ -769,45 +822,61 @@ def admin_product_edit(product_id):
         category = "Kinh doanh"
 
     con = db()
-    new_path = ""
-    old_path = ""
+    uploaded = {}
+    old_assets = {}
     try:
         with con.cursor() as cur:
-            cur.execute("SELECT filename FROM products WHERE id=%s", (product_id,))
+            cur.execute("SELECT filename,cover_image,demo_filename FROM products WHERE id=%s", (product_id,))
             existing = cur.fetchone()
             if not existing:
                 abort(404)
-            old_path = existing.get("filename") or ""
-            file = request.files.get("file")
-            chosen_path = old_path
-            chosen_format = os.path.splitext(old_path)[1].lstrip(".").upper() or "PPTX"
-            if file and file.filename:
-                safe = secure_filename(file.filename)
-                ext = os.path.splitext(safe)[1].lower()
-                if not safe or ext not in {".ppt", ".pptx", ".pdf", ".zip"}:
-                    return "Chỉ nhận PPT, PPTX, PDF hoặc ZIP.", 400
-                new_path = f"products/{uuid.uuid4().hex}_{safe}"
-                try:
-                    storage_upload(file, new_path)
-                except RuntimeError as e:
-                    return str(e), 502
-                chosen_path = new_path
-                chosen_format = ext.lstrip(".").upper()
+            old_assets = {"filename": existing.get("filename") or "", "cover_image": existing.get("cover_image") or "", "demo_filename": existing.get("demo_filename") or ""}
+            chosen = dict(old_assets)
+            chosen_format = os.path.splitext(chosen["filename"])[1].lstrip(".").upper() or "PPTX"
+            for field, kind in (("file", "file"), ("cover_image", "cover"), ("demo_file", "demo")):
+                upload = request.files.get(field)
+                if not upload or not upload.filename:
+                    continue
+                if kind == "file":
+                    safe = secure_filename(upload.filename)
+                    ext = os.path.splitext(safe)[1].lower()
+                    if not safe or ext not in {".ppt", ".pptx", ".pdf", ".zip"}:
+                        return "File sản phẩm chỉ nhận PPT, PPTX, PDF hoặc ZIP.", 400
+                    path = f"products/{uuid.uuid4().hex}_{safe}"
+                else:
+                    try:
+                        path = upload_optional_asset(upload, kind, product_id)
+                    except ValueError as e:
+                        return str(e), 400
+                if kind == "file":
+                    try:
+                        storage_upload(upload, path)
+                    except RuntimeError as e:
+                        return str(e), 502
+                    chosen_format = ext.lstrip(".").upper()
+                    chosen["filename"] = path
+                elif kind == "cover":
+                    chosen["cover_image"] = path
+                else:
+                    chosen["demo_filename"] = path
+                uploaded[field] = path
             cur.execute("""UPDATE products SET name=%s, description=%s, price=%s, category=%s,
-                        slides=%s, badge=%s, filename=%s, format=%s, updated_at=NOW() WHERE id=%s""",
-                        (name, description, price, category, slides, badge, chosen_path, chosen_format, product_id))
+                        slides=%s, badge=%s, filename=%s, format=%s, cover_image=%s, demo_filename=%s, updated_at=NOW() WHERE id=%s""",
+                        (name, description, price, category, slides, badge, chosen["filename"], chosen_format, chosen["cover_image"], chosen["demo_filename"], product_id))
         con.commit()
     except Exception:
         con.rollback()
-        if new_path:
-            storage_delete(new_path)
+        for path in uploaded.values():
+            storage_delete(path)
         raise
     finally:
         con.close()
-    if new_path and old_path and old_path != new_path:
-        storage_delete(old_path)
+    for key, path in uploaded.items():
+        old_key = {"file": "filename", "cover_image": "cover_image", "demo_file": "demo_filename"}[key]
+        old = old_assets.get(old_key, "")
+        if old and old != path:
+            storage_delete(old)
     return redirect(url_for("admin"))
-
 
 @app.route("/admin/product/<int:product_id>/delete", methods=["POST"])
 @admin_required
@@ -817,7 +886,7 @@ def admin_product_delete(product_id):
     filename = ""
     try:
         with con.cursor() as cur:
-            cur.execute("SELECT filename FROM products WHERE id=%s", (product_id,))
+            cur.execute("SELECT filename,cover_image,demo_filename FROM products WHERE id=%s", (product_id,))
             product_row = cur.fetchone()
             if not product_row:
                 abort(404)
@@ -825,6 +894,8 @@ def admin_product_delete(product_id):
             if cur.fetchone()["n"]:
                 return "Không thể xóa mẫu đã có đơn hàng. Bạn có thể chỉnh sửa hoặc đổi giá về 0.", 409
             filename = product_row.get("filename") or ""
+            cover_image = product_row.get("cover_image") or ""
+            demo_filename = product_row.get("demo_filename") or ""
             cur.execute("DELETE FROM products WHERE id=%s", (product_id,))
         con.commit()
     except Exception:
@@ -832,8 +903,9 @@ def admin_product_delete(product_id):
         raise
     finally:
         con.close()
-    if filename:
-        storage_delete(filename)
+    for asset_path in (filename, cover_image, demo_filename):
+        if asset_path:
+            storage_delete(asset_path)
     return redirect(url_for("admin"))
 
 
@@ -854,38 +926,50 @@ def admin_add():
     badge = request.form.get("badge", "").strip()[:80]
     free_enabled = request.form.get("free_enabled") == "1"
     raw_threshold = request.form.get("free_after_orders", "").strip()
-    try: free_after_orders = int(raw_threshold) if raw_threshold else None
-    except ValueError: return "Ngưỡng đơn hàng không hợp lệ.", 400
-    if free_after_orders is not None and free_after_orders < 1: return "Ngưỡng phải từ 1 đơn trở lên.", 400
-    file = request.files.get("file")
+    try:
+        free_after_orders = int(raw_threshold) if raw_threshold else None
+    except ValueError:
+        return "Ngưỡng đơn hàng không hợp lệ.", 400
+    if free_after_orders is not None and free_after_orders < 1:
+        return "Ngưỡng đơn hàng không hợp lệ.", 400
     if not name or len(name) > 180 or len(description) > 10000 or price < 0 or slides < 1 or slides > 1000:
         return "Tên, mô tả, giá hoặc số slide không hợp lệ.", 400
 
-    storage_path = ""
-    if file and file.filename:
-        safe = secure_filename(file.filename)
-        if not safe:
-            return "Tên file không hợp lệ.", 400
-        ext = os.path.splitext(safe)[1].lower()
-        if ext not in {".ppt", ".pptx", ".pdf", ".zip"}:
-            return "Chỉ nhận PPT, PPTX, PDF hoặc ZIP.", 400
-        storage_path = f"products/{uuid.uuid4().hex}_{safe}"
-        try:
-            storage_upload(file, storage_path)
-        except RuntimeError as e:
-            return str(e), 502
+    uploaded = {}
+    try:
+        main_file = request.files.get("file")
+        if main_file and main_file.filename:
+            safe = secure_filename(main_file.filename)
+            ext = os.path.splitext(safe)[1].lower()
+            if not safe or ext not in {".ppt", ".pptx", ".pdf", ".zip"}:
+                return "Chỉ nhận PPT, PPTX, PDF hoặc ZIP.", 400
+            path = f"products/{uuid.uuid4().hex}_{safe}"
+            storage_upload(main_file, path)
+            uploaded["filename"] = path
+        for field, kind in (("cover_image", "cover"), ("demo_file", "demo")):
+            asset = request.files.get(field)
+            if asset and asset.filename:
+                uploaded[field] = upload_optional_asset(asset, kind)
+    except ValueError as e:
+        for path in uploaded.values():
+            storage_delete(path)
+        return str(e), 400
+    except RuntimeError as e:
+        for path in uploaded.values():
+            storage_delete(path)
+        return str(e), 502
 
     con = db()
     try:
         with con.cursor() as cur:
-            cur.execute("""INSERT INTO products(name,description,price,preview,filename,category,slides,format,badge,free_enabled,free_after_orders,free_unlocked_at)
-                           VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CASE WHEN %s THEN NOW() ELSE NULL END) RETURNING id""",
-                        (name, description, price, "custom", storage_path, category, slides, "PPTX", badge, free_enabled, free_after_orders, free_enabled))
+            cur.execute("""INSERT INTO products(name,description,price,preview,filename,category,slides,format,badge,free_enabled,free_after_orders,free_unlocked_at,cover_image,demo_filename)
+                           VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CASE WHEN %s THEN NOW() ELSE NULL END,%s,%s) RETURNING id""",
+                        (name, description, price, "custom", uploaded.get("filename", ""), category, slides, os.path.splitext(uploaded.get("filename", ""))[1].lstrip(".").upper() or "PPTX", badge, free_enabled, free_after_orders, free_enabled, uploaded.get("cover_image", ""), uploaded.get("demo_file", "")))
         con.commit()
     except Exception:
         con.rollback()
-        if storage_path:
-            storage_delete(storage_path)
+        for path in uploaded.values():
+            storage_delete(path)
         raise
     finally:
         con.close()
