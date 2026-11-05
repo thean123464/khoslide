@@ -17,7 +17,7 @@
 {% for p in products[:6] %}
 <article class="card">
 <a href="{{ url_for('product', product_id=p.id) }}"><div class="thumb">
-{% if p.preview and (p.preview.startswith('http://') or p.preview.startswith('https://')) %}<img src="{{ p.preview }}" alt="{{ p.name }}">
+{% if p.cover_image %}<img src="{{ url_for('product_cover',product_id=p.id) }}" alt="{{ p.name }}">{% elif p.preview and (p.preview.startswith('http://') or p.preview.startswith('https://')) %}<img src="{{ p.preview }}" alt="{{ p.name }}">
 {% else %}<div class="thumb-art {% if loop.index%3==2 %}alt{% elif loop.index%3==0 %}gold{% endif %}"><span>K H O S L I D E</span><b>{{ p.name }}</b></div>{% endif %}
 </div></a>
 <div class="card-body"><div class="card-title">{{ p.name }}</div><div class="card-meta"><span>{{ p.category or 'PowerPoint' }}</span><span class="sales-count">{{ p.paid_order_count|default(0)|int }} lượt bán</span><span class="price {% if not p.price or p.price==0 %}free{% endif %}">{% if p.price and p.price>0 %}{% if p.free_enabled or (p.free_after_orders and p.paid_order_count|default(0)|int >= p.free_after_orders|int) %}Miễn phí{% else %}{{ "{:,.0f}".format(p.price) }}đ{% endif %}{% else %}Miễn phí{% endif %}</span></div>
